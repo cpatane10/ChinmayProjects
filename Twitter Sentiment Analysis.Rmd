@@ -1,0 +1,103 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(twitteR)
+ library(ROAuth)
+ library(plyr)
+ library(dplyr)
+ library(stringr)
+ library(ggplot2)
+
+pos.words <- read.csv('pw.csv')
+neg.words <- read.csv('nw.csv')
+
+pos.words <- scan('pw.csv',what = 'character')
+neg.words <- scan('nw.csv',what = 'character')
+
+pos.words = c(pos.words, 'witchcraft','thxx','invested','thanks')
+neg.words = c(neg.words, 'wtf', 'behind','feels', 'ugly', 'back','worse' , 'shitty', 'bad', 'no','freaking','sucks','horrible','fuck','hate')
+
+#Read the data
+X=read.csv('twitter-sanders-apple2.csv')
+
+
+score.sentiment = function(sentences, pos.words, neg.words, .progress='none')
+{
+ require(plyr)
+ require(stringr)
+  scores = laply(sentences, function(sentence, pos.words, neg.words) {
+    # clean up sentences 
+ sentence = gsub('[[:punct:]]', '', sentence)
+ sentence = gsub('[[:cntrl:]]', '', sentence)
+ sentence = gsub('\\d+', '', sentence)
+ # and convert to lower case:
+ sentence = tolower(sentence)
+ 
+ # split into words. 
+ word.list = str_split(sentence, '\\s+')
+ # sometimes a list() is one level of hierarchy too much
+ words = unlist(word.list)
+ 
+ # compare our words 
+ pos.matches = match(words, pos.words)
+ neg.matches = match(words, neg.words)
+ 
+ # match() returns the position of the matched term or NA
+ 
+ pos.matches = !is.na(pos.matches)
+ neg.matches = !is.na(neg.matches)
+ 
+ # and conveniently enough, TRUE/FALSE will be treated as 1/0 
+ score = sum(pos.matches) - sum(neg.matches)
+ 
+ return(score)
+ }, pos.words, neg.words, .progress=.progress )
+ 
+ scores.df = data.frame(score=scores, text=sentences)
+ return(scores.df)
+}
+
+
+result <- score.sentiment(X$text,pos.words,neg.words)
+#Get summary to know overall score- Whether the trend is positive or negative
+summary(result$score)
+
+#Count how many positives ard negatives are there
+library(dplyr)
+result%>%group_by(score)%>%count(score)
+#Check histogram
+hist(result$score,col ='yellow', main ='Score of tweets',ylab = " Count of tweets")
+#Check Graphplot
+qplot(result$score,xlab = "Score of tweets")
+
+
+
+#Cross Checking whether this model is good or bad
+#To check accuracy, positive sentence is Pos and negative is Neg
+X$score<-ifelse(X$class=='Pos', 'Pos', 'Neg')
+result$score1=ifelse(result$score>0,'Pos','Neg')
+nrow(filter(result,score1==0))
+table(X$score,result$score1)#Accuracy is 78.28%
+
+#Prepare a file to compare
+Z=X
+Z$score=NULL
+result$PredictedScore=ifelse(result$score>0,'Pos','Neg')
+Z$PredictedScore=result$PredictedScore
+write.csv(Z, "TweeterAnalysis.csv")
+
+
+
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
